@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* ── Sidebar ── */
+  --sidebar-bg: #6b0f1a;
+  /* deep maroon */
+  --sidebar-hover: rgba(255, 255, 255, 0.10);
+  --sidebar-active: #c9973a;
+  /* warm gold */
+  --sidebar-active-bg: rgba(201, 151, 58, 0.18);
+  --sidebar-text: rgba(255, 255, 255, 0.85);
+  --sidebar-text-dim: rgba(255, 255, 255, 0.55);
+
+  /* ── Content Area ── */
+  --bg-page: #f0f2f5;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafafa;
+
+  /* ── Brand ── */
+  --primary: #6b0f1a;
+  --primary-light: #8b1525;
+  --accent-gold: #c9973a;
+  --accent-gold-light: #e8b84b;
+
+  /* ── Text ── */
+  --text-main: #1a1a2e;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --text-dim: #a0aec0;
+
+  /* ── Borders & Shadows ── */
+  --border-light: #e2e8f0;
+  --border-card: #edf2f7;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-card-hover: 0 8px 32px rgba(107, 15, 26, 0.12);
+
+  /* ── Stat Card Accents ── */
+  --stat-points: #c9973a;
+  --stat-events: #3b82f6;
+  --stat-badges: #7c3aed;
+  --stat-rank: #059669;
+
+  /* ── Backward-compat aliases (old dark-theme vars) ── */
+  --bg-deep: var(--bg-page);
+  --bg-main: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-glass: #ffffff;
+  --secondary: var(--stat-events);
+  --secondary-glow: rgba(59, 130, 246, 0.12);
+  --accent: var(--accent-gold);
+  --accent-glow: rgba(201, 151, 58, 0.12);
+  --primary-glow: rgba(107, 15, 26, 0.10);
+  --primary-light: #8b1525;
+  --border-glass: var(--border-light);
+  --border-glow: rgba(107, 15, 26, 0.20);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: var(--shadow-md);
+  --text-dim: var(--text-muted);
+
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Transitions ─────────────────────────────────── */
+a,
+button,
+.MuiListItem-root {
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+/* ─── Typography ──────────────────────────────────── */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* ─── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+/* ─── Sidebar Overrides ───────────────────────────── */
+.sidebar-logo-text {
+  color: white;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Responsive ──────────────────────────────────── */
+@media (max-width: 900px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    font-size: 13px;
+  }
+}
