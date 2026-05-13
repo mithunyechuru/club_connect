@@ -6,54 +6,59 @@ import {
     Divider
 } from '@mui/material';
 import {
-    Dashboard, Event, Groups, CardMembership, EmojiEvents,
+    Dashboard, Event, Groups, EmojiEvents,
     Leaderboard, Settings, Logout, Menu as MenuIcon,
     Search as SearchIcon, Notifications as NotificationsIcon,
     Person as PersonIcon, PendingActions, Business, MeetingRoom, AdminPanelSettings,
-    AddCircle,
+    AddCircle, Forum,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { adminService } from '../../services/adminService';
 
 const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+    { text: 'Create Content', icon: <AddCircle />, path: '/officer/create-content', roles: ['CLUB_OFFICER', 'ADMINISTRATOR'] },
     { text: 'Events', icon: <Event />, path: '/events' },
-    { text: 'Clubs', icon: <Groups />, path: '/clubs' },
-    { text: 'Certificates', icon: <CardMembership />, path: '/profile' },
-    { text: 'Badges', icon: <EmojiEvents />, path: '/profile' },
-    { text: 'Leaderboard', icon: <Leaderboard />, path: '/profile' },
-];
-
-const OFFICER_ITEMS = [
-    { text: 'Create Content', icon: <AddCircle />, path: '/officer/create-content' },
+    { text: 'Members', icon: <Groups />, path: '/officer/members', roles: ['CLUB_OFFICER', 'ADMINISTRATOR'] },
+    { text: 'Messages', icon: <Forum />, path: '/messages' },
+    { text: 'Clubs', icon: <Business />, path: '/clubs' },
+    { text: 'Achievements', icon: <EmojiEvents />, path: '/achievements' },
+    { text: 'Leaderboard', icon: <Leaderboard />, path: '/leaderboard' },
 ];
 
 const BOTTOM_ITEMS = [
-    { text: 'Settings', icon: <Settings />, path: '/profile' },
+    { text: 'Settings', icon: <Settings />, path: '/settings' },
 ];
 
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [pendingOfficerCount, setPendingOfficerCount] = useState(0);
-    const { user, signOut, isAdmin, isOfficer } = useAuth();
+    const { user, signOut, isAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-    const allNavItems = [...NAV_ITEMS];
-    if (isOfficer || isAdmin) {
-        allNavItems.push(...OFFICER_ITEMS);
+    const allNavItems = NAV_ITEMS.filter(item => {
+        if (!item.roles) return true;
+        return user && item.roles.includes(user.role);
+    });
+    
+    if (isAdmin) {
+        // Venue management is specifically for admins
+        const venueItem = { text: 'Venue', icon: <MeetingRoom />, path: '/admin/venues' };
+        if (!allNavItems.find(i => i.path === venueItem.path)) {
+            allNavItems.push(venueItem);
+        }
     }
-    if (isOfficer) allNavItems.push({ text: 'Officer Console', icon: <Dashboard />, path: '/officer/dashboard' });
 
     // Pre-fetch pending officer requests count for badge
     useEffect(() => {
         if (!isAdmin) return;
-        import('../../services/adminService')
-            .then(mod => mod.adminService.getPendingOfficerRequests())
+        adminService.getPendingOfficerRequests()
             .then(reqs => setPendingOfficerCount(reqs.length))
             .catch(() => { });
     }, [isAdmin]);

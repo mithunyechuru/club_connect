@@ -30,21 +30,37 @@ export class SeedService {
             const venues: Venue[] = [
                 {
                     venueId: 'v1',
-                    name: 'Main Auditorium',
-                    location: 'Building A, Floor 1',
-                    capacity: 500,
-                    equipment: ['Projector', 'Sound System', 'Stage Lights'],
-                    features: ['Accessible'],
-                    isAvailable: true
+                    name: 'Multipurpose Hall - Floor 1',
+                    type: 'Multipurpose',
+                    floor: 1,
+                    building: 'Main Block',
+                    capacity: 300,
+                    facilities: ['Projector', 'Sound System', 'AC'],
+                    description: 'Large auditorium for major events',
+                    status: 'active',
+                    createdBy: 'admin_id_001',
+                    createdAt: Timestamp.now(),
+                    isAvailable: true,
+                    location: 'Main Block, Floor 1',
+                    equipment: ['Projector', 'Sound System', 'AC'],
+                    features: ['Multipurpose']
                 },
                 {
                     venueId: 'v2',
-                    name: 'Tech Lab 101',
-                    location: 'Building B, Floor 2',
-                    capacity: 40,
-                    equipment: ['Computers', 'Whiteboard'],
-                    features: ['AC'],
-                    isAvailable: true
+                    name: 'Seminar Hall - Floor 2',
+                    type: 'Seminar',
+                    floor: 2,
+                    building: 'Main Block',
+                    capacity: 80,
+                    facilities: ['Whiteboard', 'AC', 'WiFi'],
+                    description: 'Dedicated hall for seminars and workshops',
+                    status: 'active',
+                    createdBy: 'admin_id_001',
+                    createdAt: Timestamp.now(),
+                    isAvailable: true,
+                    location: 'Main Block, Floor 2',
+                    equipment: ['Whiteboard', 'AC', 'WiFi'],
+                    features: ['Seminar']
                 }
             ];
 
@@ -69,6 +85,9 @@ export class SeedService {
                     eventReminders: true,
                     clubAnnouncements: true
                 },
+                totalPoints: 0,
+                eventsAttendedCount: 0,
+                badgesEarnedCount: 0,
                 createdAt: Timestamp.now(),
                 lastLogin: Timestamp.now()
             };

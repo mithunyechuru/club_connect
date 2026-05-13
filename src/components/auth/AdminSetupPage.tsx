@@ -62,6 +62,9 @@ export const AdminSetupPage: React.FC = () => {
                     },
                     createdAt: Timestamp.now(),
                     lastLogin: Timestamp.now(),
+                    totalPoints: 0,
+                    eventsAttendedCount: 0,
+                    badgesEarnedCount: 0,
                 };
                 await userRepository.createUser(newUser);
                 setMessage(`✓ Admin account created and configured for "${email}".`);

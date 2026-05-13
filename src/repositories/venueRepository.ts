@@ -12,7 +12,10 @@ import {
   startAfter,
   orderBy,
   DocumentSnapshot,
+  onSnapshot,
+  Timestamp,
 } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { dbConnectionManager } from '../services/databaseConnectionManager';
 import { Venue } from '../types';
 
@@ -59,6 +62,25 @@ export class VenueRepository {
   }
 
   /**
+   * Subscribe to real-time venue updates
+   * @param callback - Function called with updated venues list
+   * @returns Unsubscribe function
+   */
+  subscribeToVenues(callback: (venues: Venue[]) => void): () => void {
+    const q = query(collection(db, this.collectionName), orderBy('floor'), orderBy('name'));
+    
+    return onSnapshot(q, (snapshot) => {
+      const venues = snapshot.docs.map(doc => ({
+        venueId: doc.id,
+        ...doc.data(),
+      } as Venue));
+      callback(venues);
+    }, (error) => {
+      console.error('Error subscribing to venues:', error);
+    });
+  }
+
+  /**
    * Create a new venue
    * @param venueData - The venue data (without venueId)
    * @returns Promise<Venue> The created venue with generated ID
@@ -68,6 +90,9 @@ export class VenueRepository {
       const docRef = await addDoc(collection(connection, this.collectionName), {
         ...venueData,
         isAvailable: venueData.isAvailable ?? true,
+        status: venueData.status ?? 'active',
+        building: venueData.building ?? 'Main Block',
+        createdAt: venueData.createdAt || Timestamp.now(),
       });
 
       return {
@@ -143,13 +168,13 @@ export class VenueRepository {
       // In-memory filter for multiple equipment/features if needed
       if (options.requiredEquipment && options.requiredEquipment.length > 0) {
         venues = venues.filter(v =>
-          options.requiredEquipment!.every(req => v.equipment.includes(req))
+          options.requiredEquipment!.every(req => (v.equipment || []).includes(req))
         );
       }
 
       if (options.requiredFeatures && options.requiredFeatures.length > 0) {
         venues = venues.filter(v =>
-          options.requiredFeatures!.every(req => v.features.includes(req))
+          options.requiredFeatures!.every(req => (v.features || []).includes(req))
         );
       }
 

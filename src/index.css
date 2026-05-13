@@ -144,3 +144,44 @@ a {
     font-size: 13px;
   }
 }
+
+/* ─── Dark Mode Theme ─────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-page: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-card-hover: #1f2335;
+  --bg-main: #1a1d27;
+  --bg-surface: #1a1d27;
+  --bg-surface-glass: #1a1d27;
+  --bg-deep: #0f1117;
+
+  --text-main: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+
+  --border-light: #2d3748;
+  --border-card: #2d3748;
+  --border-glass: #2d3748;
+  --border-glow: rgba(201, 151, 58, 0.25);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-card-hover: 0 8px 32px rgba(201, 151, 58, 0.15);
+
+  --stat-points: #e8b84b;
+  --stat-events: #60a5fa;
+  --stat-badges: #a78bfa;
+  --stat-rank: #34d399;
+}
+
+[data-theme="dark"] body {
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+
+/* Smooth theme transitions */
+*, *::before, *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;
+}

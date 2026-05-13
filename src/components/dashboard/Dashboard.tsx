@@ -9,6 +9,9 @@ import {
 } from '@mui/icons-material';
 import { GlassCard, GradientButton, StatIconBox } from '../shared/DesignSystem';
 import { eventRepository } from '../../repositories/eventRepository';
+import { leaderboardRepository } from '../../repositories/leaderboardRepository';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Event } from '../../types';
 
 interface StatCardProps {
@@ -42,14 +45,24 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, variant }) => (
 );
 
 export const Dashboard: React.FC = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
     const [events, setEvents] = useState<Event[]>([]);
+    const [rank, setRank] = useState<string | number>('N/A');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!user) return;
             try {
-                const res = await eventRepository.getUpcomingEvents({ pageSize: 5 });
-                setEvents(res.events);
+                const [eventRes, leaderboard] = await Promise.all([
+                    eventRepository.getUpcomingEvents({ pageSize: 5 }),
+                    leaderboardRepository.getTopStudents('OVERALL', 100)
+                ]);
+                setEvents(eventRes.events);
+                
+                const userRank = leaderboard.find(e => e.userId === user.userId)?.rank;
+                if (userRank) setRank(userRank);
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
             } finally {
@@ -57,7 +70,7 @@ export const Dashboard: React.FC = () => {
             }
         };
         fetchData();
-    }, []);
+    }, [user]);
 
     return (
         <Box>
@@ -77,7 +90,7 @@ export const Dashboard: React.FC = () => {
                     <StatCard
                         icon={<TrophyIcon fontSize="inherit" />}
                         label="Your Points"
-                        value={0}
+                        value={user?.totalPoints || 0}
                         variant="points"
                     />
                 </Grid>
@@ -85,7 +98,7 @@ export const Dashboard: React.FC = () => {
                     <StatCard
                         icon={<CalendarIcon fontSize="inherit" />}
                         label="Events Attended"
-                        value={0}
+                        value={user?.eventsAttendedCount || 0}
                         variant="events"
                     />
                 </Grid>
@@ -93,7 +106,7 @@ export const Dashboard: React.FC = () => {
                     <StatCard
                         icon={<BadgeIcon fontSize="inherit" />}
                         label="Badges Earned"
-                        value={0}
+                        value={user?.badgesEarnedCount || 0}
                         variant="badges"
                     />
                 </Grid>
@@ -101,7 +114,7 @@ export const Dashboard: React.FC = () => {
                     <StatCard
                         icon={<LeaderboardIcon fontSize="inherit" />}
                         label="Leaderboard Rank"
-                        value="N/A"
+                        value={rank}
                         variant="rank"
                     />
                 </Grid>
@@ -210,11 +223,13 @@ export const Dashboard: React.FC = () => {
                             </Box>
 
                             <Typography sx={{ fontSize: '0.88rem', color: 'var(--text-secondary)', mb: 2.5, lineHeight: 1.5 }}>
-                                Earn your first badge by attending an event!
+                                {user?.badgesEarnedCount && user.badgesEarnedCount > 0 
+                                    ? `Great job! You've earned ${user.badgesEarnedCount} badges so far.`
+                                    : 'Earn your first badge by attending an event!'}
                             </Typography>
 
-                            <GradientButton fullWidth>
-                                View All Badges
+                            <GradientButton fullWidth onClick={() => navigate('/achievements')}>
+                                View All Achievements
                             </GradientButton>
                         </Box>
                     </GlassCard>
@@ -227,7 +242,8 @@ export const Dashboard: React.FC = () => {
                         {[
                             { label: 'Browse Events', color: 'var(--stat-events)', path: '/events' },
                             { label: 'Join a Club', color: 'var(--primary)', path: '/clubs' },
-                            { label: 'Notifications', color: 'var(--stat-badges)', path: '/notifications' },
+                            { label: 'Leaderboard', color: 'var(--accent-gold)', path: '/leaderboard' },
+                            { label: 'My Certificates', color: 'var(--stat-badges)', path: '/achievements' },
                         ].map((item) => (
                             <Box
                                 key={item.label}
@@ -237,6 +253,7 @@ export const Dashboard: React.FC = () => {
                                     '&:hover .quick-label': { color: item.color },
                                     '&:not(:last-child)': { borderBottom: '1px solid var(--border-card)' },
                                 }}
+                                onClick={() => navigate(item.path)}
                             >
                                 <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
                                 <Typography

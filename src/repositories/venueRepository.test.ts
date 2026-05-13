@@ -40,9 +40,17 @@ import {
 
 describe('VenueRepository', () => {
     const mockVenue: Omit<Venue, 'venueId'> = {
-        name: 'Test Hall',
-        location: 'Building A',
+        name: 'Multipurpose Hall - Floor 1',
+        type: 'Multipurpose',
+        floor: 1,
+        building: 'Main Block',
         capacity: 100,
+        facilities: ['Projector'],
+        description: 'Test Description',
+        status: 'active',
+        createdBy: 'test-user',
+        createdAt: Timestamp.now() as any,
+        location: 'Building A',
         equipment: ['Projector'],
         features: ['AC'],
         isAvailable: true,

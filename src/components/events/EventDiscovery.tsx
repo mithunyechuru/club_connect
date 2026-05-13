@@ -19,9 +19,11 @@ import { Timestamp } from 'firebase/firestore';
 import { EventCalendar } from './EventCalendar';
 import { ViewList, CalendarMonth } from '@mui/icons-material';
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { History } from '@mui/icons-material';
+import { PastEventForm } from './PastEventForm';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type TabId = 0 | 1 | 2; // 0=Upcoming, 1=Registered, 2=Completed
+type TabId = 0 | 1 | 2 | 3; // 0=Upcoming, 1=Registered, 2=Completed, 3=AddPast (Officer/Admin only)
 
 const TYPE_COLORS: Record<string, string> = {
     WORKSHOP: '#3b82f6',
@@ -640,6 +642,18 @@ export const EventDiscovery: React.FC = () => {
                         }
                         id="events-tab-2"
                     />
+                    {hideRegisteredTab && (
+                        <Tab
+                            value={3}
+                            label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <History sx={{ fontSize: '1.1rem' }} />
+                                    Add Past Event
+                                </Box>
+                            }
+                            id="events-tab-3"
+                        />
+                    )}
                 </Tabs>
             </Box>
 
@@ -787,6 +801,12 @@ export const EventDiscovery: React.FC = () => {
                             )}
                         </Grid>
                     )}
+
+                    {tab === 3 && (
+                        <Box sx={{ mt: 2 }}>
+                            <PastEventForm onSuccess={() => { setTab(2); fetchData(); }} />
+                        </Box>
+                    )}
                 </>
             )}
 
@@ -861,19 +881,6 @@ export const EventDiscovery: React.FC = () => {
                     gap: 1.5,
                     fontSize: '1.4rem'
                 }}>
-                    <Box sx={{ 
-                        fontSize: '1.8rem', 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 44,
-                        height: 44,
-                        borderRadius: '10px',
-                        background: 'rgba(201,151,58,0.1)',
-                        color: 'var(--accent-gold)'
-                    }}>
-                        {editEvent ? '✏️' : '🎉'}
-                    </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
                             {editEvent ? 'Edit Event' : 'Create New Event'}

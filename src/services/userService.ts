@@ -54,6 +54,9 @@ export class UserService {
         email, // Ensure email is in profile
       },
       preferences,
+      totalPoints: 0,
+      eventsAttendedCount: 0,
+      badgesEarnedCount: 0,
       createdAt: Timestamp.now(),
       lastLogin: Timestamp.now(),
     };

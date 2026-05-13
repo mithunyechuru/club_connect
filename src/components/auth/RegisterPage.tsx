@@ -52,7 +52,10 @@ export const RegisterPage: React.FC = () => {
                     clubAnnouncements: true
                 },
                 createdAt: Timestamp.now(),
-                lastLogin: Timestamp.now()
+                lastLogin: Timestamp.now(),
+                totalPoints: 0,
+                eventsAttendedCount: 0,
+                badgesEarnedCount: 0
             };
 
             await userRepository.createUser(newUser);

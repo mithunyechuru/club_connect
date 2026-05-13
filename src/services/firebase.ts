@@ -5,14 +5,17 @@ import { getFirestore, connectFirestoreEmulator, Firestore, collection, getDocs,
 import { getDatabase, connectDatabaseEmulator, Database, ref, get } from 'firebase/database';
 import { getStorage, connectStorageEmulator, FirebaseStorage } from 'firebase/storage';
 
+// Use import.meta.env if available (Vite), otherwise fallback to process.env (Node/Jest)
+const env = (import.meta as any).env || process.env;
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: env.VITE_FIREBASE_DATABASE_URL,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
@@ -25,7 +28,7 @@ export const realtimeDb: Database = getDatabase(app);
 export const storage: FirebaseStorage = getStorage(app);
 
 // Connect to emulators in development
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+if (env.VITE_USE_FIREBASE_EMULATOR === 'true') {
   connectAuthEmulator(auth, 'http://localhost:9099');
   connectFirestoreEmulator(db, 'localhost', 8080);
   connectDatabaseEmulator(realtimeDb, 'localhost', 9000);

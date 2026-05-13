@@ -40,8 +40,16 @@ describe('Venue Management Property Tests', () => {
     const generateVenue = (id: string, capacity: number): Venue => ({
         venueId: id,
         name: `Venue ${id}`,
-        location: 'Test Location',
+        type: 'Multipurpose',
+        floor: 1,
+        building: 'Main Block',
         capacity,
+        facilities: ['Projector', 'AC'],
+        description: 'Test Venue',
+        status: 'active',
+        createdBy: 'test-user',
+        createdAt: Timestamp.now(),
+        location: 'Test Location',
         equipment: ['Projector'],
         features: ['AC'],
         isAvailable: true,
@@ -140,12 +148,12 @@ describe('Venue Management Property Tests', () => {
                             }
                             if (opts.requiredEquipment) {
                                 filtered = filtered.filter(v =>
-                                    opts.requiredEquipment.every((req: string) => v.equipment.includes(req))
+                                    opts.requiredEquipment.every((req: string) => (v.equipment || []).includes(req))
                                 );
                             }
                             if (opts.requiredFeatures) {
                                 filtered = filtered.filter(v =>
-                                    opts.requiredFeatures.every((req: string) => v.features.includes(req))
+                                    opts.requiredFeatures.every((req: string) => (v.features || []).includes(req))
                                 );
                             }
                             return Promise.resolve({

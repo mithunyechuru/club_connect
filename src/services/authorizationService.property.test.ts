@@ -37,6 +37,9 @@ describe('AuthorizationService Property Tests', () => {
       eventReminders: true,
       clubAnnouncements: true,
     },
+    totalPoints: 0,
+    eventsAttendedCount: 0,
+    badgesEarnedCount: 0,
     createdAt: Timestamp.now(),
     lastLogin: Timestamp.now(),
   });

@@ -63,6 +63,14 @@ export interface NotificationPreferences {
   clubAnnouncements: boolean;
 }
 
+export const POINT_VALUES = {
+  ATTENDANCE: 10,
+  PARTICIPATION: 20,
+  WINNING: 50,
+  FEEDBACK: 5,
+  BADGE_EARNED: 10,
+};
+
 export interface User {
   userId: string;
   email: string;
@@ -72,6 +80,9 @@ export interface User {
   preferences: NotificationPreferences;
   displayName?: string;
   photoURL?: string;
+  totalPoints: number;
+  eventsAttendedCount: number;
+  badgesEarnedCount: number;
   createdAt: Timestamp;
   lastLogin: Timestamp;
 }
@@ -88,6 +99,7 @@ export interface Club {
   documentIds: string[];
   tierConfig?: MembershipTier;
   category: string;
+  imageUrl?: string;
   createdAt: Timestamp;
 }
 
@@ -118,6 +130,12 @@ export interface Event {
   imageUrl?: string;
   registrationDeadline?: Timestamp;
   clubName?: string;
+  // Past event specific fields
+  guestSpeaker?: string;
+  actualParticipantCount?: number;
+  images?: string[];
+  externalLink?: string;
+  organizedBy?: string;
 }
 
 export interface RSVP {
@@ -132,12 +150,22 @@ export interface RSVP {
 
 export interface Venue {
   venueId: string;
-  name: string;
-  location: string;
+  name: string; // Auto-generated: "{Type} - Floor {Floor}"
+  type: 'Multipurpose' | 'Seminar';
+  floor: number; // 1-5
+  building: string; // "Main Block"
   capacity: number;
-  equipment: string[];
-  features: string[];
-  isAvailable: boolean;
+  facilities: string[]; // ["Projector", "AC", etc.]
+  imageUrl?: string;
+  description: string;
+  status: 'active' | 'inactive';
+  createdBy: string;
+  createdAt: Timestamp;
+  // Legacy fields for backward compatibility
+  location?: string;
+  equipment?: string[];
+  features?: string[];
+  isAvailable?: boolean;
 }
 
 export interface AttendanceRecord {
@@ -375,7 +403,10 @@ export interface ClubAnnouncement {
 export interface LeaderboardEntry {
   userId: string;
   userName: string;
+  userAvatar?: string;
   participationScore: number;
+  eventsAttended: number;
+  badgesEarned: number;
   rank: number;
 }
 
@@ -454,4 +485,23 @@ export interface Engagement {
   createdBy: string;
   createdAt: Timestamp;
   status: 'ACTIVE' | 'EXPIRED' | 'CLOSED';
+}
+
+// ─── Settings Types ──────────────────────────────────────────────────────────
+
+export type AppTheme = 'light' | 'dark';
+
+export interface SystemSettings {
+  settingsId: string;
+  universityName: string;
+  universityLogoUrl: string;
+  defaultEventDurationHours: number;
+  maxParticipantsPerEvent: number;
+  updatedAt: Timestamp;
+  updatedBy: string;
+}
+
+export interface UserAppSettings {
+  theme: AppTheme;
+  updatedAt: Timestamp;
 }

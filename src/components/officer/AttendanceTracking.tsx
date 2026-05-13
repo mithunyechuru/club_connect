@@ -29,6 +29,7 @@ import { userRepository } from '../../repositories/userRepository';
 import { attendanceRepository } from '../../repositories/attendanceRepository';
 import { manualAttendanceService } from '../../services/manualAttendanceService';
 import { qrCodeScanner } from '../../services/qrCodeScanner';
+import { achievementService } from '../../services/achievementService';
 import { useAuth } from '../../context/AuthContext';
 import { Event, User, RSVP, RSVPStatus, AttendanceRecord } from '../../types';
 
@@ -80,6 +81,10 @@ export const AttendanceTracking: React.FC = () => {
         try {
             await manualAttendanceService.markPresent(eventId, studentId, user.userId);
             setAttendance(prev => ({ ...prev, [studentId]: true }));
+            
+            // Award Points & Generate Certificate
+            await achievementService.awardPoints(studentId, 'ATTENDANCE');
+            await achievementService.generateCertificate(studentId, eventId);
         } catch (error) {
             console.error('Error checking in:', error);
         }
@@ -91,6 +96,11 @@ export const AttendanceTracking: React.FC = () => {
             const qrToken = qrCodeScanner.generateQRToken(eventId);
             await qrCodeScanner.processScan(qrToken, scannedId);
             setAttendance(prev => ({ ...prev, [scannedId]: true }));
+            
+            // Award Points & Generate Certificate
+            await achievementService.awardPoints(scannedId, 'ATTENDANCE');
+            await achievementService.generateCertificate(scannedId, eventId);
+            
             setScannerOpen(false);
             setScannedId('');
         } catch (error: any) {

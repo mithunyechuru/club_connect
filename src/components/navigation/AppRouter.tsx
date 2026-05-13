@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LoginPage } from '../auth/LoginPage';
 import { RegisterPage } from '../auth/RegisterPage';
 import { AdminSetupPage } from '../auth/AdminSetupPage';
-import { ClubDiscovery } from '../clubs/ClubDiscovery';
+import { ClubsPage } from '../clubs/ClubsPage';
 import { ClubDetails } from '../clubs/ClubDetails';
 import { EventDiscovery } from '../events/EventDiscovery';
 import { EventDetails } from '../events/EventDetails';
@@ -18,7 +18,10 @@ import { AdminDashboard } from '../admin/AdminDashboard';
 import { VenueManagement } from '../admin/VenueManagement';
 import { CreateContent } from '../officer/CreateContent';
 import { UserProfilePage } from '../profile/UserProfilePage';
+import { SettingsPage } from '../settings/SettingsPage';
 import { Dashboard } from '../dashboard/Dashboard';
+import { Leaderboard } from '../dashboard/Leaderboard';
+import { Achievements } from '../profile/Achievements';
 import { MainLayout } from '../layout/MainLayout';
 import { LoadingScreen } from '../shared/LoadingScreen';
 
@@ -63,13 +66,16 @@ export const AppRouter: React.FC = () => {
                 <Route element={<LayoutWrapper />}>
                     <Route path="/" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/clubs" element={<ClubDiscovery />} />
+                    <Route path="/clubs" element={<ClubsPage />} />
                     <Route path="/clubs/:clubId" element={<ClubDetails />} />
                     <Route path="/events" element={<EventDiscovery />} />
                     <Route path="/events/:eventId" element={<EventDetails />} />
                     <Route path="/messages" element={<MessagingCenter />} />
                     <Route path="/notifications" element={<NotificationCenter />} />
                     <Route path="/profile" element={<UserProfilePage />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/achievements" element={<Achievements />} />
+                    <Route path="/settings" element={<SettingsPage />} />
 
                     {/* Officer Specific Routes */}
                     <Route element={<ProtectedRoute allowedRoles={['CLUB_OFFICER', 'ADMINISTRATOR']} />}>

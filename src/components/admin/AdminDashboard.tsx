@@ -7,9 +7,9 @@ import {
     MenuItem,
 } from '@mui/material';
 import {
-    Business, Groups, Event, Build, Analytics, VerifiedUser, AdminPanelSettings,
+    Business, Groups, Event as EventIcon, Build, Analytics, VerifiedUser, AdminPanelSettings,
     PendingActions, Assessment, Cancel, CalendarToday, LocationOn, Edit, Delete,
-    CheckCircle,
+    CheckCircle, History,
 } from '@mui/icons-material';
 import { GlassCard, Badge, GradientButton, StyledInput } from '../shared/DesignSystem';
 import { clubRepository } from '../../repositories/clubRepository';
@@ -21,6 +21,7 @@ import { seedService } from '../../services/seedService';
 import { PendingRequestsPanel } from './PendingRequestsPanel';
 import { ActivityLogPanel } from './ActivityLogPanel';
 import { ClubManagement } from './ClubManagement';
+import { PastEventForm } from '../events/PastEventForm';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
 
@@ -245,16 +246,25 @@ const AdminEventsPanel: React.FC<AdminEventsPanelProps> = ({ events, onRefresh }
                             <Chip label={completedEvents.length} size="small" sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, bgcolor: '#6b7280', color: '#fff' }} />
                         </Box>
                     } />
+                    <Tab label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <History sx={{ fontSize: '1rem' }} />
+                            Add Past Event
+                        </Box>
+                    } />
                 </Tabs>
             </Box>
 
-            {/* Event lists */}
-            <Grid container spacing={2.5}>
+            {/* Event lists or Form */}
+            {subTab === 2 ? (
+                <PastEventForm onSuccess={onRefresh} />
+            ) : (
+                <Grid container spacing={2.5}>
                 {(subTab === 0 ? upcomingEvents : completedEvents).length === 0 ? (
                     <Grid item xs={12}>
                         <GlassCard>
                             <Box sx={{ textAlign: 'center', py: 8 }}>
-                                <Event sx={{ fontSize: '3rem', color: 'var(--text-dim)', mb: 2 }} />
+                                <EventIcon sx={{ fontSize: '3rem', color: 'var(--text-dim)', mb: 2 }} />
                                 <Typography sx={{ color: 'var(--text-muted)' }}>
                                     No {subTab === 0 ? 'upcoming' : 'completed'} events to display.
                                 </Typography>
@@ -273,6 +283,7 @@ const AdminEventsPanel: React.FC<AdminEventsPanelProps> = ({ events, onRefresh }
                     ))
                 )}
             </Grid>
+            )}
 
             {/* Edit Dialog */}
             <Dialog
@@ -291,19 +302,6 @@ const AdminEventsPanel: React.FC<AdminEventsPanelProps> = ({ events, onRefresh }
                     gap: 1.5,
                     fontSize: '1.4rem'
                 }}>
-                    <Box sx={{ 
-                        fontSize: '1.8rem', 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 44,
-                        height: 44,
-                        borderRadius: '10px',
-                        background: 'rgba(201,151,58,0.1)',
-                        color: 'var(--accent-gold)'
-                    }}>
-                        ✏️
-                    </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
                             Edit Event Details
@@ -543,7 +541,7 @@ export const AdminDashboard: React.FC = () => {
                     <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Business sx={{ fontSize: '1.1rem' }} />Club Management</Box>} />
                     <Tab label={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Event sx={{ fontSize: '1.1rem' }} />
+                            <EventIcon sx={{ fontSize: '1.1rem' }} />
                             Events
                             <Chip label={events.length} size="small" sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'var(--accent-gold)', color: '#fff' }} />
                         </Box>
@@ -564,7 +562,7 @@ export const AdminDashboard: React.FC = () => {
                         <StatCard icon={<Groups fontSize="large" />} count={users?.length || 0} label="Registered Students" iconBg="rgba(59,130,246,0.10)" iconColor="#3b82f6" />
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                        <StatCard icon={<Event fontSize="large" />} count={events?.length || 0} label="Total Events" iconBg="rgba(201,151,58,0.10)" iconColor="var(--accent-gold)" />
+                        <StatCard icon={<EventIcon fontSize="large" />} count={events?.length || 0} label="Total Events" iconBg="rgba(201,151,58,0.10)" iconColor="var(--accent-gold)" />
                     </Grid>
                 </Grid>
 
@@ -608,7 +606,7 @@ export const AdminDashboard: React.FC = () => {
                                                 <ListItemAvatar>
                                                     <Avatar sx={{ bgcolor: 'rgba(107,15,26,0.10)', color: 'var(--primary)', fontWeight: 700 }}>
                                                         {club?.name?.[0] || '?'}
-                                                    </Avatar>
+                                                     </Avatar>
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={<Typography sx={{ fontWeight: 600 }}>{club?.name || 'Unknown Club'}</Typography>}
@@ -657,7 +655,7 @@ export const AdminDashboard: React.FC = () => {
                                 <GradientButton startIcon={<Business />} fullWidth onClick={() => setTab(3)}>
                                     Manage Clubs
                                 </GradientButton>
-                                <GradientButton startIcon={<Event />} fullWidth onClick={() => setTab(4)}>
+                                <GradientButton startIcon={<EventIcon />} fullWidth onClick={() => setTab(4)}>
                                     View All Events ({events.length})
                                 </GradientButton>
                                 <GradientButton startIcon={<VerifiedUser />} fullWidth onClick={() => setTab(5)}>

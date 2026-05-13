@@ -46,7 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 pushNotifications: true,
                                 eventReminders: true,
                                 clubAnnouncements: true
-                            }
+                            },
+                            totalPoints: 0,
+                            eventsAttendedCount: 0,
+                            badgesEarnedCount: 0
                         };
                         setUser(userData);
                     } else {

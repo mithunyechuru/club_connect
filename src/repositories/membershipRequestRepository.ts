@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  onSnapshot,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -20,6 +21,43 @@ import { MembershipRequest, RequestStatus } from '../types';
  */
 export class MembershipRequestRepository {
   private readonly collectionName = 'membershipRequests';
+
+  /**
+   * Subscribe to membership requests for a specific student (real-time)
+   */
+  subscribeToRequestsByStudent(studentId: string, callback: (requests: MembershipRequest[]) => void) {
+    const q = query(
+      collection(db, this.collectionName),
+      where('studentId', '==', studentId),
+      orderBy('requestedAt', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        requestId: doc.id,
+        ...doc.data(),
+      } as MembershipRequest));
+      callback(requests);
+    });
+  }
+
+  /**
+   * Subscribe to pending membership requests for a specific club (real-time)
+   */
+  subscribeToPendingRequestsByClub(clubId: string, callback: (requests: MembershipRequest[]) => void) {
+    const q = query(
+      collection(db, this.collectionName),
+      where('clubId', '==', clubId),
+      where('status', '==', RequestStatus.PENDING),
+      orderBy('requestedAt', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        requestId: doc.id,
+        ...doc.data(),
+      } as MembershipRequest));
+      callback(requests);
+    });
+  }
 
   /**
    * Get a membership request by its ID

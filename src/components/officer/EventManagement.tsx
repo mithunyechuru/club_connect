@@ -2,15 +2,19 @@ import React, { useEffect, useState } from 'react';
 import {
     Typography, Box, Grid, CircularProgress, IconButton, Stack, MenuItem,
     Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip,
-    Alert,
+    Alert, Tabs, Tab,
 } from '@mui/material';
-import { Add, Edit, Delete, Event as EventIcon, QrCodeScanner, Image as ImageIcon } from '@mui/icons-material';
+import { 
+    Add, Edit, Delete, Event as EventIcon, QrCodeScanner, 
+    Image as ImageIcon, CalendarToday, CheckCircle, History 
+} from '@mui/icons-material';
 import { GlassCard, Badge, GradientButton, StyledInput } from '../shared/DesignSystem';
 import { useAuth } from '../../context/AuthContext';
 import { clubRepository } from '../../repositories/clubRepository';
 import { eventRepository } from '../../repositories/eventRepository';
 import { Event, EventType, EventStatus } from '../../types';
 import { Timestamp } from 'firebase/firestore';
+import { PastEventForm } from '../events/PastEventForm';
 
 // ─── Category options mapped to EventType ────────────────────────────────────
 const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
@@ -22,7 +26,7 @@ const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
     { value: EventType.MEETING, label: '📋 Technical / Meeting' },
 ];
 
-const isUpcoming = (event: Event) =>
+const isEventUpcoming = (event: Event) =>
     (event.startTime as any)?.toMillis?.() > Date.now();
 
 // ─── Form initial state ──────────────────────────────────────────────────────
@@ -44,6 +48,7 @@ export const EventManagement: React.FC = () => {
     const { user } = useAuth();
     const [events, setEvents] = useState<Event[]>([]);
     const [activeClub, setActiveClub] = useState<any>(null);
+    const [myClubs, setMyClubs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
     const [editEvent, setEditEvent] = useState<Event | null>(null);
@@ -51,6 +56,7 @@ export const EventManagement: React.FC = () => {
     const [deleteTarget, setDeleteTarget] = useState<Event | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+    const [subTab, setSubTab] = useState(0);
 
     const [formData, setFormData] = useState(emptyForm);
 
@@ -63,27 +69,18 @@ export const EventManagement: React.FC = () => {
         if (!user) return;
         try {
             const officerClubs = await clubRepository.getClubsByOfficer(user.userId);
-            let clubEvents: Event[] = [];
+            setMyClubs(officerClubs);
             
             if (officerClubs.length > 0) {
-                const club = officerClubs[0];
-                setActiveClub(club);
-                clubEvents = await eventRepository.getEventsByClub(club.clubId);
+                const targetClub = activeClub || officerClubs[0];
+                if (!activeClub) setActiveClub(officerClubs[0]);
+                
+                const clubEvents = await eventRepository.getEventsByClub(targetClub.clubId);
+                setEvents(clubEvents);
             } else {
                 setActiveClub(null);
-                // If not assigned to a club, show all events (or we could filter for 'unassigned' specifically)
-                // The user specifically asked to make club assignment optional.
-                const allEvents = await eventRepository.getAllEvents();
-                clubEvents = allEvents.filter(e => e.clubId === 'unassigned');
+                setEvents([]);
             }
-            
-            // sort: upcoming first, then completed
-            clubEvents.sort((a, b) => {
-                const aMs = (a.startTime as any)?.toMillis?.() ?? 0;
-                const bMs = (b.startTime as any)?.toMillis?.() ?? 0;
-                return bMs - aMs;
-            });
-            setEvents(clubEvents);
         } catch (error) {
             console.error('Error fetching events:', error);
         } finally {
@@ -91,7 +88,12 @@ export const EventManagement: React.FC = () => {
         }
     };
 
-    useEffect(() => { fetchData(); }, [user]);
+    useEffect(() => { 
+        fetchData(); 
+    }, [user, activeClub?.clubId]);
+
+    const upcomingEvents = events.filter(e => isEventUpcoming(e)).sort((a, b) => (a.startTime as any).toMillis() - (b.startTime as any).toMillis());
+    const completedEvents = events.filter(e => !isEventUpcoming(e)).sort((a, b) => (b.startTime as any).toMillis() - (a.startTime as any).toMillis());
 
     const openCreate = () => {
         setEditEvent(null);
@@ -189,9 +191,27 @@ export const EventManagement: React.FC = () => {
                         Schedule and manage events for <strong>{activeClub?.name ?? '—'}</strong>
                     </Typography>
                 </Box>
-                <GradientButton startIcon={<Add />} onClick={openCreate} id="add-event-btn">
-                    Add Event
-                </GradientButton>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    {myClubs.length > 1 && (
+                        <StyledInput
+                            select
+                            size="small"
+                            value={activeClub?.clubId || ''}
+                            onChange={(e) => {
+                                const club = myClubs.find(c => c.clubId === e.target.value);
+                                if (club) setActiveClub(club);
+                            }}
+                            sx={{ minWidth: 200 }}
+                        >
+                            {myClubs.map(c => (
+                                <MenuItem key={c.clubId} value={c.clubId}>{c.name}</MenuItem>
+                            ))}
+                        </StyledInput>
+                    )}
+                    <GradientButton startIcon={<Add />} onClick={openCreate} id="add-event-btn">
+                        Add Event
+                    </GradientButton>
+                </Box>
             </Box>
 
             {/* Alert */}
@@ -201,93 +221,116 @@ export const EventManagement: React.FC = () => {
                 </Alert>
             )}
 
-            {!activeClub && events.length === 0 ? (
-                <GlassCard>
-                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                        <EventIcon sx={{ fontSize: '3rem', color: 'var(--text-dim)', mb: 2 }} />
-                        <Typography sx={{ color: 'var(--text-muted)' }}>
-                            You are not assigned to any club yet. Create an unassigned event to get started.
-                        </Typography>
-                    </Box>
-                </GlassCard>
-            ) : events.length === 0 ? (
-                <GlassCard>
-                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                        <EventIcon sx={{ fontSize: '3rem', color: 'var(--text-dim)', mb: 2 }} />
-                        <Typography sx={{ color: 'var(--text-muted)', mb: 2 }}>
-                            No events yet for {activeClub.name}.
-                        </Typography>
-                        <GradientButton startIcon={<Add />} onClick={openCreate}>
-                            Create Your First Event
-                        </GradientButton>
-                    </Box>
-                </GlassCard>
+            {/* Tabs */}
+            <Box sx={{ borderBottom: '1px solid var(--border-light)', mb: 3 }}>
+                <Tabs
+                    value={subTab}
+                    onChange={(_, v) => setSubTab(v)}
+                    sx={{
+                        '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-muted)', '&.Mui-selected': { color: 'var(--primary)' } },
+                        '& .MuiTabs-indicator': { background: 'var(--primary)', height: 2 },
+                    }}
+                >
+                    <Tab label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CalendarToday sx={{ fontSize: '1rem' }} />
+                            Upcoming Events
+                            <Chip label={upcomingEvents.length} size="small" sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'var(--primary)', color: '#fff' }} />
+                        </Box>
+                    } />
+                    <Tab label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CheckCircle sx={{ fontSize: '1rem' }} />
+                            Completed Events
+                            <Chip label={completedEvents.length} size="small" sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, bgcolor: '#6b7280', color: '#fff' }} />
+                        </Box>
+                    } />
+                    <Tab label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <History sx={{ fontSize: '1rem' }} />
+                            Add Past Event
+                        </Box>
+                    } />
+                </Tabs>
+            </Box>
+
+            {subTab === 2 ? (
+                <PastEventForm onSuccess={fetchData} />
             ) : (
                 <Grid container spacing={3}>
-                    {events.map((event) => {
-                        const upcoming = isUpcoming(event);
-                        return (
-                            <Grid item xs={12} key={event.eventId}>
-                                <GlassCard sx={{ p: 0, overflow: 'hidden' }}>
-                                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
-                                        {/* Color accent */}
-                                        <Box sx={{
-                                            width: { xs: '100%', sm: 6 }, minHeight: { xs: 4, sm: 'auto' },
-                                            background: upcoming ? 'var(--primary)' : '#9ca3af', flexShrink: 0,
-                                        }} />
-                                        <Box sx={{ p: 2.5, flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, gap: 2 }}>
-                                            {/* Icon */}
+                    {(subTab === 0 ? upcomingEvents : completedEvents).length === 0 ? (
+                        <Grid item xs={12}>
+                            <GlassCard>
+                                <Box sx={{ textAlign: 'center', py: 8 }}>
+                                    <EventIcon sx={{ fontSize: '3rem', color: 'var(--text-dim)', mb: 2 }} />
+                                    <Typography sx={{ color: 'var(--text-muted)' }}>
+                                        No {subTab === 0 ? 'upcoming' : 'completed'} events yet.
+                                    </Typography>
+                                </Box>
+                            </GlassCard>
+                        </Grid>
+                    ) : (
+                        (subTab === 0 ? upcomingEvents : completedEvents).map((event) => {
+                            const upcoming = isEventUpcoming(event);
+                            return (
+                                <Grid item xs={12} key={event.eventId}>
+                                    <GlassCard sx={{ p: 0, overflow: 'hidden' }}>
+                                        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
                                             <Box sx={{
-                                                minWidth: 56, height: 56, borderRadius: 2,
-                                                background: upcoming ? 'var(--primary-glow)' : '#f3f4f6',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: upcoming ? 'var(--primary)' : '#6b7280', flexShrink: 0,
-                                            }}>
-                                                <EventIcon />
-                                            </Box>
-
-                                            {/* Info */}
-                                            <Box sx={{ flexGrow: 1 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4, flexWrap: 'wrap' }}>
-                                                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>{event.name}</Typography>
-                                                    <Chip
-                                                        label={upcoming ? 'Upcoming' : 'Completed'}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor: upcoming ? '#16a34a18' : '#6b728018',
-                                                            color: upcoming ? '#16a34a' : '#6b7280',
-                                                            fontWeight: 700, fontSize: '0.7rem', height: 20,
-                                                        }}
-                                                    />
-                                                    <Badge color="secondary">{event.type.replace('_', ' ')}</Badge>
+                                                width: { xs: '100%', sm: 6 }, minHeight: { xs: 4, sm: 'auto' },
+                                                background: upcoming ? 'var(--primary)' : '#9ca3af', flexShrink: 0,
+                                            }} />
+                                            <Box sx={{ p: 2.5, flexGrow: 1, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, gap: 2 }}>
+                                                <Box sx={{
+                                                    minWidth: 56, height: 56, borderRadius: 2,
+                                                    background: upcoming ? 'var(--primary-glow)' : '#f3f4f6',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    color: upcoming ? 'var(--primary)' : '#6b7280', flexShrink: 0,
+                                                }}>
+                                                    <EventIcon />
                                                 </Box>
-                                                <Typography variant="body2" sx={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                                                    {event.startTime.toDate().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} &nbsp;·&nbsp; {event.location || 'No location'}
-                                                </Typography>
-                                            </Box>
 
-                                            {/* Actions */}
-                                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
-                                                <Badge color="secondary">{event.registeredCount} / {event.capacity}</Badge>
-                                                <IconButton
-                                                    onClick={() => window.location.href = `/officer/attendance/${event.eventId}`}
-                                                    sx={{ color: 'var(--accent-gold)' }} title="Attendance"
-                                                >
-                                                    <QrCodeScanner />
-                                                </IconButton>
-                                                <IconButton onClick={() => openEdit(event)} sx={{ color: 'var(--primary)' }} title="Edit">
-                                                    <Edit />
-                                                </IconButton>
-                                                <IconButton onClick={() => setDeleteTarget(event)} sx={{ color: '#ef4444' }} title="Delete">
-                                                    <Delete />
-                                                </IconButton>
-                                            </Stack>
+                                                <Box sx={{ flexGrow: 1 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4, flexWrap: 'wrap' }}>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>{event.name}</Typography>
+                                                        <Chip
+                                                            label={upcoming ? 'Upcoming' : 'Completed'}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: upcoming ? '#16a34a18' : '#6b728018',
+                                                                color: upcoming ? '#16a34a' : '#6b7280',
+                                                                fontWeight: 700, fontSize: '0.7rem', height: 20,
+                                                            }}
+                                                        />
+                                                        <Badge color="secondary">{event.type.replace('_', ' ')}</Badge>
+                                                    </Box>
+                                                    <Typography variant="body2" sx={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                                        {event.startTime.toDate().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} &nbsp;·&nbsp; {event.location || 'No location'}
+                                                    </Typography>
+                                                </Box>
+
+                                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                                                    <Badge color="secondary">{event.registeredCount} / {event.capacity}</Badge>
+                                                    <IconButton
+                                                        onClick={() => window.location.href = `/officer/attendance/${event.eventId}`}
+                                                        sx={{ color: 'var(--accent-gold)' }} title="Attendance"
+                                                    >
+                                                        <QrCodeScanner />
+                                                    </IconButton>
+                                                    <IconButton onClick={() => openEdit(event)} sx={{ color: 'var(--primary)' }} title="Edit">
+                                                        <Edit />
+                                                    </IconButton>
+                                                    <IconButton onClick={() => setDeleteTarget(event)} sx={{ color: '#ef4444' }} title="Delete">
+                                                        <Delete />
+                                                    </IconButton>
+                                                </Stack>
+                                            </Box>
                                         </Box>
-                                    </Box>
-                                </GlassCard>
-                            </Grid>
-                        );
-                    })}
+                                    </GlassCard>
+                                </Grid>
+                            );
+                        })
+                    )}
                 </Grid>
             )}
 
@@ -308,19 +351,6 @@ export const EventManagement: React.FC = () => {
                     gap: 1.5,
                     fontSize: '1.4rem'
                 }}>
-                    <Box sx={{ 
-                        fontSize: '1.8rem', 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 44,
-                        height: 44,
-                        borderRadius: '10px',
-                        background: 'rgba(201,151,58,0.1)',
-                        color: 'var(--accent-gold)'
-                    }}>
-                        {editEvent ? '✏️' : '🎉'}
-                    </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
                             {editEvent ? 'Edit Event' : 'Create New Event'}
@@ -340,7 +370,6 @@ export const EventManagement: React.FC = () => {
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                             />
                         </Grid>
-
 
                         {/* Category */}
                         <Grid item xs={12} md={6}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Box, Typography, Tabs, Tab, Grid, MenuItem,
     Checkbox, FormControlLabel, CircularProgress,
@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
     AddCircle, Groups, Event as EventIcon, Announcement, 
-    Delete, Security, CloudUpload, Search, Person
+    Delete, Security, CloudUpload, Search, Person, Image as ImageIcon
 } from '@mui/icons-material';
 import { GlassCard, GradientButton, StyledInput } from '../shared/DesignSystem';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import { clubRepository } from '../../repositories/clubRepository';
 import { eventRepository } from '../../repositories/eventRepository';
 import { engagementRepository } from '../../repositories/engagementRepository';
 import { venueRepository } from '../../repositories/venueRepository';
+import { clubMediaService } from '../../services/clubMediaService';
 import { 
     Club, Event, Engagement, EngagementType, EventType, 
     ClubRole, Timestamp, Venue, EventStatus 
@@ -55,12 +56,17 @@ const ENGAGEMENT_TYPE_OPTIONS = [
 ];
 
 export const CreateContent: React.FC = () => {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, isOfficer } = useAuth();
     const { showToast } = useToast();
     const [tabValue, setTabValue] = useState(0);
     const [loading, setLoading] = useState(false);
     const [myClubs, setMyClubs] = useState<Club[]>([]);
     const [venues, setVenues] = useState<Venue[]>([]);
+    const logoInputRef = useRef<HTMLInputElement>(null);
+
+    // Logo State
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
     // Form States
     const [clubForm, setClubForm] = useState({
@@ -79,6 +85,7 @@ export const CreateContent: React.FC = () => {
         name: '',
         description: '',
         clubId: '',
+        clubName: '',
         type: EventType.WORKSHOP,
         startTime: '',
         endTime: '',
@@ -127,12 +134,38 @@ export const CreateContent: React.FC = () => {
         setTabValue(newValue);
     };
 
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('File size exceeds 2MB limit.', 'error');
+                return;
+            }
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+        }
+    };
+
     // Submissions
     const handleClubSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+        
+        // Requirement: Only Admin or Officer can create clubs
+        if (!isAdmin && !isOfficer) {
+            showToast('Permission Denied: Only administrators or club officers can create new clubs.', 'error');
+            return;
+        }
+
         setLoading(true);
         try {
+            let logoUrl = '';
+            if (logoFile) {
+                // Use a temporary ID for storage if needed, or rely on a unique timestamp
+                const tempId = `temp_${Date.now()}`;
+                logoUrl = await clubMediaService.uploadLogo(tempId, logoFile);
+            }
+
             const clubData: Omit<Club, 'clubId'> = {
                 name: clubForm.name,
                 description: clubForm.description,
@@ -143,6 +176,7 @@ export const CreateContent: React.FC = () => {
                 managerId: user.userId,
                 memberRoles: { [user.userId]: ClubRole.PRESIDENT },
                 documentIds: [],
+                imageUrl: logoUrl || undefined,
                 createdAt: Timestamp.now(),
             };
             await clubRepository.createClub(clubData);
@@ -152,6 +186,8 @@ export const CreateContent: React.FC = () => {
                 meetingDate: '', meetingTime: '', isRecurring: false,
                 venueId: '', notifyAll: true
             });
+            setLogoFile(null);
+            setLogoPreview(null);
         } catch (error) {
             console.error('Error creating club:', error);
             showToast('Failed to create club', 'error');
@@ -163,12 +199,18 @@ export const CreateContent: React.FC = () => {
     const handleEventSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+        
+        if (!eventForm.name || !eventForm.startTime || !eventForm.endTime) {
+            showToast('Please fill in all required fields.', 'error');
+            return;
+        }
+
         setLoading(true);
         try {
             const selectedClub = myClubs.find(c => c.clubId === eventForm.clubId);
             const eventData: Omit<Event, 'eventId'> = {
-                clubId: eventForm.clubId,
-                clubName: selectedClub?.name || 'Unknown Club',
+                clubId: eventForm.clubId || 'unassigned',
+                clubName: eventForm.clubName || selectedClub?.name || 'Unassigned',
                 name: eventForm.name,
                 description: eventForm.description,
                 type: eventForm.type,
@@ -187,15 +229,16 @@ export const CreateContent: React.FC = () => {
                 createdAt: Timestamp.now(),
             };
             await eventRepository.createEvent(eventData);
-            showToast('Event created successfully!', 'success');
-            setEventForm(prev => ({
-                ...prev,
-                name: '', description: '', startTime: '', endTime: '',
-                registrationDeadline: '', capacity: 50, location: '', imageUrl: ''
-            }));
+            showToast(`Event "${eventForm.name}" created successfully!`, 'success');
+            setEventForm({
+                name: '', description: '', clubId: myClubs[0]?.clubId || '', clubName: '',
+                type: EventType.WORKSHOP, startTime: '', endTime: '',
+                registrationDeadline: '', capacity: 50, venueId: '', location: '', imageUrl: '',
+                notifyMembers: true
+            });
         } catch (error) {
             console.error('Error creating event:', error);
-            showToast('Failed to create event', 'error');
+            showToast('Failed to create event. Please check if all required fields are filled.', 'error');
         } finally {
             setLoading(false);
         }
@@ -204,12 +247,26 @@ export const CreateContent: React.FC = () => {
     const handleEngagementSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+
+        // Basic Validation
+        if (!engagementForm.title || !engagementForm.description) {
+            showToast('Title and Description are required.', 'error');
+            return;
+        }
+        if (engagementForm.type === EngagementType.POLL) {
+            const validOptions = engagementForm.pollOptions.filter(o => o.trim() !== '');
+            if (validOptions.length < 2) {
+                showToast('Polls must have at least 2 options.', 'error');
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const selectedClub = myClubs.find(c => c.clubId === engagementForm.clubId);
             const engagementData: Omit<Engagement, 'engagementId'> = {
-                clubId: engagementForm.clubId,
-                clubName: selectedClub?.name || 'Unknown Club',
+                clubId: engagementForm.clubId || 'unassigned',
+                clubName: selectedClub?.name || engagementForm.clubId || 'Unassigned',
                 type: engagementForm.type,
                 title: engagementForm.title,
                 description: engagementForm.description,
@@ -225,7 +282,7 @@ export const CreateContent: React.FC = () => {
                 status: 'ACTIVE'
             };
             await engagementRepository.createEngagement(engagementData);
-            showToast('Engagement created successfully!', 'success');
+            showToast(`Engagement "${engagementForm.title}" launched successfully!`, 'success');
             setEngagementForm(prev => ({
                 ...prev,
                 title: '', description: '', pollOptions: ['', ''],
@@ -233,7 +290,7 @@ export const CreateContent: React.FC = () => {
             }));
         } catch (error) {
             console.error('Error creating engagement:', error);
-            showToast('Failed to create engagement', 'error');
+            showToast('Failed to create engagement. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
@@ -403,19 +460,59 @@ export const CreateContent: React.FC = () => {
                                     {/* Club Logo/Image Section */}
                                     <Grid item xs={12}>
                                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Club Logo/Image</Typography>
-                                        <Box sx={{ 
-                                            p: 4, border: '1px dashed var(--border-light)', 
-                                            borderRadius: '8px', textAlign: 'center',
-                                            bgcolor: 'white', cursor: 'pointer',
-                                            transition: '0.3s', '&:hover': { bgcolor: 'rgba(0,0,0,0.01)', borderColor: 'var(--primary)' }
-                                        }}>
-                                            <CloudUpload sx={{ fontSize: '2rem', color: 'var(--text-main)', mb: 1 }} />
-                                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                                                Click to upload or drag and drop
-                                            </Typography>
-                                            <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
-                                                PNG, JPG (Max. 2MB)
-                                            </Typography>
+                                        <Box 
+                                            onClick={() => logoInputRef.current?.click()}
+                                            sx={{ 
+                                                p: logoPreview ? 1 : 4, border: '1px dashed var(--border-light)', 
+                                                borderRadius: '8px', textAlign: 'center',
+                                                bgcolor: 'white', cursor: 'pointer',
+                                                transition: '0.3s', '&:hover': { bgcolor: 'rgba(0,0,0,0.01)', borderColor: 'var(--primary)' },
+                                                position: 'relative', minHeight: 120,
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                                            }}
+                                        >
+                                            <input 
+                                                type="file" 
+                                                hidden 
+                                                accept="image/*" 
+                                                ref={logoInputRef}
+                                                onChange={handleLogoChange}
+                                            />
+                                            
+                                            {logoPreview ? (
+                                                <Box sx={{ position: 'relative', width: '100%', maxWidth: 200 }}>
+                                                    <img 
+                                                        src={logoPreview} 
+                                                        alt="Club Logo Preview" 
+                                                        style={{ width: '100%', height: 'auto', borderRadius: '8px', maxHeight: 150, objectFit: 'contain' }} 
+                                                    />
+                                                    <IconButton 
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLogoFile(null);
+                                                            setLogoPreview(null);
+                                                        }}
+                                                        sx={{ 
+                                                            position: 'absolute', top: -10, right: -10, 
+                                                            bgcolor: 'var(--primary)', color: 'white',
+                                                            '&:hover': { bgcolor: '#c1121f' }
+                                                        }}
+                                                    >
+                                                        <Delete fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            ) : (
+                                                <>
+                                                    <CloudUpload sx={{ fontSize: '2rem', color: 'var(--text-main)', mb: 1 }} />
+                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                                        Click to upload or drag and drop
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                                                        PNG, JPG (Max. 2MB)
+                                                    </Typography>
+                                                </>
+                                            )}
                                         </Box>
                                     </Grid>
 
@@ -447,6 +544,7 @@ export const CreateContent: React.FC = () => {
                                                         <Button 
                                                             variant="contained" size="small" 
                                                             startIcon={<AddCircle />}
+                                                            onClick={() => showToast(`Invite feature for ${role.title} will be available once the club is created.`, 'info')}
                                                             sx={{ 
                                                                 mt: 'auto', textTransform: 'none', borderRadius: '8px',
                                                                 bgcolor: 'var(--primary)', boxShadow: 'none'
@@ -507,6 +605,7 @@ export const CreateContent: React.FC = () => {
                                     
                                     <Grid item xs={12}>
                                         <Button 
+                                            type="button"
                                             variant="contained" startIcon={<Search />}
                                             sx={{ 
                                                 textTransform: 'none', borderRadius: '8px', px: 3, py: 1,
@@ -533,104 +632,164 @@ export const CreateContent: React.FC = () => {
                             </form>
                         </TabPanel>
 
-                    {/* ── New Event Tab ───────────────────────────────────────── */}
                     <TabPanel value={tabValue} index={1}>
+                        <Box sx={{ mb: 4 }}>
+                            <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
+                                    Create New Event
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+                                    Share a new experience with the community
+                                </Typography>
+                            </Box>
+                        </Box>
+
                         <form onSubmit={handleEventSubmit}>
-                            <Grid container spacing={3}>
+                            <Grid container spacing={2.5}>
                                 <Grid item xs={12}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Event Name</Typography>
                                     <StyledInput 
-                                        fullWidth required 
-                                        placeholder="Annual Hackathon"
+                                        fullWidth label="Event Name *"
                                         value={eventForm.name}
                                         onChange={e => setEventForm({ ...eventForm, name: e.target.value })}
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Description</Typography>
+
+                                <Grid item xs={12} md={6}>
                                     <StyledInput 
-                                        fullWidth required multiline rows={4}
-                                        placeholder="Details about the event..."
+                                        select fullWidth label="Category *"
+                                        value={eventForm.type}
+                                        onChange={e => setEventForm({ ...eventForm, type: e.target.value as EventType })}
+                                    >
+                                        <MenuItem value={EventType.WORKSHOP}>🛠 Workshop</MenuItem>
+                                        <MenuItem value={EventType.SEMINAR}>🎓 Seminar</MenuItem>
+                                        <MenuItem value={EventType.HACKATHON}>💻 Hackathon</MenuItem>
+                                        <MenuItem value={EventType.COMPETITION}>🏆 Competition</MenuItem>
+                                        <MenuItem value={EventType.SOCIAL_GATHERING}>🎉 Cultural / Social</MenuItem>
+                                        <MenuItem value={EventType.MEETING}>📋 Technical / Meeting</MenuItem>
+                                    </StyledInput>
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        select fullWidth label="Target Club (Optional)"
+                                        value={eventForm.clubId}
+                                        onChange={e => setEventForm({ ...eventForm, clubId: e.target.value })}
+                                    >
+                                        <MenuItem value="">Select a club</MenuItem>
+                                        {myClubs.map(club => (
+                                            <MenuItem key={club.clubId} value={club.clubId}>
+                                                {club.name}
+                                            </MenuItem>
+                                        ))}
+                                    </StyledInput>
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        fullWidth label="Club Name Override (optional)"
+                                        value={eventForm.clubName}
+                                        onChange={e => setEventForm({ ...eventForm, clubName: e.target.value })}
+                                        placeholder={myClubs.find(c => c.clubId === eventForm.clubId)?.name || "Enter club name"}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        fullWidth type="datetime-local" label="Event Date & Start Time *"
+                                        value={eventForm.startTime}
+                                        onChange={e => setEventForm({ ...eventForm, startTime: e.target.value })}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        fullWidth type="datetime-local" label="End Time *"
+                                        value={eventForm.endTime}
+                                        onChange={e => setEventForm({ ...eventForm, endTime: e.target.value })}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        fullWidth type="datetime-local" label="Registration Deadline"
+                                        value={eventForm.registrationDeadline}
+                                        onChange={e => setEventForm({ ...eventForm, registrationDeadline: e.target.value })}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <StyledInput 
+                                        fullWidth type="number" label="Maximum Participants *"
+                                        value={eventForm.capacity}
+                                        onChange={e => setEventForm({ ...eventForm, capacity: Number(e.target.value) })}
+                                        inputProps={{ min: 1 }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Venue *</Typography>
+                                    <StyledInput 
+                                        select fullWidth
+                                        value={eventForm.venueId}
+                                        onChange={e => {
+                                            const selectedVenue = venues.find(v => v.venueId === e.target.value);
+                                            setEventForm({ 
+                                                ...eventForm, 
+                                                venueId: e.target.value,
+                                                location: selectedVenue ? `${selectedVenue.name} (${selectedVenue.building})` : eventForm.location
+                                            });
+                                        }}
+                                    >
+                                        <MenuItem value="">Select a venue</MenuItem>
+                                        {venues.map(v => (
+                                            <MenuItem key={v.venueId} value={v.venueId}>
+                                                {v.name}
+                                            </MenuItem>
+                                        ))}
+                                        <MenuItem value="other">Other / External Location</MenuItem>
+                                    </StyledInput>
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Location Details</Typography>
+                                    <StyledInput 
+                                        fullWidth 
+                                        placeholder={eventForm.venueId === 'other' ? "Enter external address" : "Specific room or directions"}
+                                        value={eventForm.location}
+                                        onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12}>
+                                    <StyledInput 
+                                        fullWidth label="Event Poster / Image URL (optional)"
+                                        value={eventForm.imageUrl}
+                                        onChange={e => setEventForm({ ...eventForm, imageUrl: e.target.value })}
+                                        InputProps={{ startAdornment: <ImageIcon sx={{ mr: 1, color: 'var(--text-dim)', fontSize: '1.1rem' }} /> }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12}>
+                                    <StyledInput 
+                                        fullWidth multiline rows={4} label="Event Description"
                                         value={eventForm.description}
                                         onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
                                     />
                                 </Grid>
-                                
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Date</Typography>
-                                    <StyledInput 
-                                        fullWidth type="date" required
-                                        value={eventForm.startTime.split('T')[0]} // Quick fix for display
-                                        onChange={e => setEventForm({ ...eventForm, startTime: e.target.value })}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Time</Typography>
-                                    <StyledInput 
-                                        fullWidth type="time" required
-                                        value={eventForm.startTime.split('T')[1]?.substring(0, 5) || ''}
-                                        onChange={e => {
-                                            const [date] = eventForm.startTime.split('T');
-                                            setEventForm({ ...eventForm, startTime: `${date}T${e.target.value}` });
-                                        }}
-                                    />
-                                </Grid>
 
-                                <Grid item xs={12} sx={{ mt: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                        <Security sx={{ color: 'var(--text-main)', fontSize: '1.4rem' }} />
-                                        <Typography variant="h6" sx={{ fontWeight: 700 }}>Venue Booking</Typography>
-                                    </Box>
-                                </Grid>
-
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Venue</Typography>
-                                    <StyledInput 
-                                        fullWidth select
-                                        value={eventForm.venueId}
-                                        onChange={e => setEventForm({ ...eventForm, venueId: e.target.value })}
-                                    >
-                                        <MenuItem value="">Select venue</MenuItem>
-                                        {venues.map(v => <MenuItem key={v.venueId} value={v.venueId}>{v.name}</MenuItem>)}
-                                    </StyledInput>
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Seats to Block</Typography>
-                                    <StyledInput 
-                                        fullWidth type="number"
-                                        value={eventForm.capacity}
-                                        onChange={e => setEventForm({ ...eventForm, capacity: Number(e.target.value) })}
-                                    />
-                                </Grid>
-
-                                <Grid item xs={12}>
+                                <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                                     <Button 
-                                        variant="contained" startIcon={<Search />}
-                                        sx={{ 
-                                            textTransform: 'none', borderRadius: '8px', px: 3, py: 1,
-                                            bgcolor: 'var(--primary)', boxShadow: '0 4px 12px rgba(67, 97, 238, 0.2)'
-                                        }}
+                                        type="button"
+                                        onClick={() => setTabValue(0)}
+                                        sx={{ color: 'var(--text-dim)', textTransform: 'none', fontWeight: 600 }}
                                     >
-                                        Check Availability
+                                        Cancel
                                     </Button>
-                                </Grid>
-
-                                <Grid item xs={12}>
-                                    <FormControlLabel 
-                                        control={<Checkbox checked={true} />} // placeholder for logic
-                                        label="Requires registration"
-                                        sx={{ '& .MuiTypography-root': { fontSize: '0.9rem', fontWeight: 500 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <FormControlLabel 
-                                        control={<Checkbox checked={eventForm.notifyMembers} onChange={e => setEventForm({ ...eventForm, notifyMembers: e.target.checked })} />}
-                                        label="Notify all members about this event"
-                                        sx={{ '& .MuiTypography-root': { fontSize: '0.9rem', fontWeight: 500 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sx={{ mt: 2 }}>
-                                    <GradientButton type="submit" sx={{ px: 4 }}>
+                                    <GradientButton type="submit" disabled={loading} sx={{ px: 4 }}>
+                                        {loading ? <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> : null}
                                         Create Event
                                     </GradientButton>
                                 </Grid>
@@ -642,10 +801,25 @@ export const CreateContent: React.FC = () => {
                     <TabPanel value={tabValue} index={2}>
                         <form onSubmit={handleEngagementSubmit}>
                             <Grid container spacing={3}>
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Engagement Type</Typography>
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Select Club (Optional)</Typography>
                                     <StyledInput 
                                         fullWidth select
+                                        value={engagementForm.clubId}
+                                        onChange={e => setEngagementForm({ ...engagementForm, clubId: e.target.value })}
+                                    >
+                                        <MenuItem value="">Choose a club</MenuItem>
+                                        {myClubs.map(club => (
+                                            <MenuItem key={club.clubId} value={club.clubId}>
+                                                {club.name}
+                                            </MenuItem>
+                                        ))}
+                                    </StyledInput>
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Engagement Type *</Typography>
+                                    <StyledInput 
+                                        fullWidth select required
                                         value={engagementForm.type}
                                         onChange={e => setEngagementForm({ ...engagementForm, type: e.target.value as EngagementType })}
                                     >
@@ -654,7 +828,7 @@ export const CreateContent: React.FC = () => {
                                     </StyledInput>
                                 </Grid>
                                 <Grid item xs={12}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Title</Typography>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Title *</Typography>
                                     <StyledInput 
                                         fullWidth required
                                         placeholder="What should our next workshop be about?"
@@ -663,7 +837,7 @@ export const CreateContent: React.FC = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Description</Typography>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'var(--text-main)' }}>Description *</Typography>
                                     <StyledInput 
                                         fullWidth required multiline rows={4}
                                         placeholder="Provide details about this engagement activity..."
@@ -694,6 +868,7 @@ export const CreateContent: React.FC = () => {
                                                 </Box>
                                             ))}
                                             <Button 
+                                                type="button"
                                                 startIcon={<AddCircle />} 
                                                 variant="outlined" 
                                                 onClick={addPollOption}
@@ -748,6 +923,7 @@ export const CreateContent: React.FC = () => {
 
                                 <Grid item xs={12}>
                                     <Button 
+                                        type="button"
                                         variant="contained" startIcon={<Search />}
                                         sx={{ 
                                             textTransform: 'none', borderRadius: '8px', px: 3, py: 1,
@@ -775,7 +951,8 @@ export const CreateContent: React.FC = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} sx={{ mt: 2 }}>
-                                    <GradientButton type="submit" sx={{ px: 4 }}>
+                                    <GradientButton type="submit" sx={{ px: 4 }} disabled={loading}>
+                                        {loading ? <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> : null}
                                         Launch Engagement
                                     </GradientButton>
                                 </Grid>

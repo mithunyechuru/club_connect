@@ -17,6 +17,7 @@ import {
     Schedule,
     Groups,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { Event, EventType } from '../../types';
 import { GlassCard, Badge, GradientButton } from '../shared/DesignSystem';
 
@@ -26,6 +27,7 @@ interface EventCalendarProps {
 
 export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
     const theme = useTheme();
+    const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -36,14 +38,6 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
     ];
 
     const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-    const getDaysInMonth = (year: number, month: number) => {
-        return new Date(year, month + 1, 0).getDate();
-    };
-
-    const getFirstDayOfMonth = (year: number, month: number) => {
-        return new Date(year, month, 1).getDay();
-    };
 
     const handlePrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -65,41 +59,19 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
+    const firstDay = new Date(year, month, 1).getDay();
 
     const calendarDays = [];
-    // Previous month days padding
-    const prevMonth = new Date(year, month, 0);
-    const prevMonthDaysCount = prevMonth.getDate();
-    for (let i = firstDay - 1; i >= 0; i--) {
-        calendarDays.push({
-            day: prevMonthDaysCount - i,
-            month: month - 1,
-            year: year,
-            isCurrentMonth: false,
-        });
-    }
-
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-        calendarDays.push({
-            day: i,
-            month: month,
-            year: year,
-            isCurrentMonth: true,
-        });
-    }
-
-    // Next month days padding
     const totalSlots = 42; // 6 rows of 7 days
-    const nextMonthPadding = totalSlots - calendarDays.length;
-    for (let i = 1; i <= nextMonthPadding; i++) {
+    
+    // Generate all 42 slots (6 weeks) to handle padding and year transitions automatically
+    for (let i = 0; i < totalSlots; i++) {
+        const d = new Date(year, month, i - firstDay + 1);
         calendarDays.push({
-            day: i,
-            month: month + 1,
-            year: year,
-            isCurrentMonth: false,
+            day: d.getDate(),
+            month: d.getMonth(),
+            year: d.getFullYear(),
+            isCurrentMonth: d.getMonth() === month,
         });
     }
 
@@ -131,9 +103,9 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
             </Box>
 
             <GlassCard sx={{ p: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-lg)' }}>
-                <Grid container>
+                <Grid container columns={7}>
                     {daysOfWeek.map(day => (
-                        <Grid item xs={12 / 7} key={day} sx={{ 
+                        <Grid item xs={1} key={day} sx={{ 
                             p: 2, 
                             textAlign: 'center', 
                             background: 'var(--primary)', 
@@ -148,18 +120,18 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
                         const dayEvents = events.filter(e => {
                             const eventDate = e.startTime.toDate();
                             return eventDate.getDate() === dateObj.day &&
-                                   eventDate.getMonth() === (dateObj.month + 12) % 12 &&
+                                   eventDate.getMonth() === dateObj.month &&
                                    eventDate.getFullYear() === dateObj.year;
                         });
 
                         const isToday = new Date().toDateString() === new Date(dateObj.year, dateObj.month, dateObj.day).toDateString();
 
                         return (
-                            <Grid item xs={12 / 7} key={index} sx={{ 
+                            <Grid item xs={1} key={index} sx={{ 
                                 height: 140, 
                                 border: '1px solid var(--border-light)',
                                 p: 1,
-                                background: dateObj.isCurrentMonth ? (isToday ? alpha(theme.palette.primary.main, 0.05) : '#fff') : 'var(--bg-main)',
+                                background: dateObj.isCurrentMonth ? (isToday ? alpha(theme.palette.primary.main, 0.05) : 'var(--bg-card)') : 'var(--bg-main)',
                                 position: 'relative',
                                 transition: 'all 0.2s',
                                 '&:hover': {
@@ -228,7 +200,7 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
                 {selectedEvent && (
                     <Stack spacing={2}>
                         <Box>
-                            <Badge color="accent" sx={{ mb: 1.5 }}>{selectedEvent.type}</Badge>
+                            <Badge color="accent" sx={{ mb: 1.5 }}>{selectedEvent.type.replace('_', ' ')}</Badge>
                             <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{selectedEvent.name}</Typography>
                         </Box>
                         
@@ -262,8 +234,9 @@ export const EventCalendar: React.FC<EventCalendarProps> = ({ events }) => {
                             variant="contained" 
                             fullWidth 
                             onClick={() => {
-                                // Logic to navigate or register is handled in main component usually
                                 handleClosePopover();
+                                // Navigate to search results with this event's name to highlight it
+                                navigate(`/events?q=${encodeURIComponent(selectedEvent.name)}`);
                             }}
                         >
                             View Details

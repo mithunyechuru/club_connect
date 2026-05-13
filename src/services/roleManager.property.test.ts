@@ -53,6 +53,9 @@ describe('RoleManager Property-Based Tests', () => {
       eventReminders: fc.boolean(),
       clubAnnouncements: fc.boolean(),
     }),
+    totalPoints: fc.integer({ min: 0, max: 10000 }),
+    eventsAttendedCount: fc.integer({ min: 0, max: 100 }),
+    badgesEarnedCount: fc.integer({ min: 0, max: 20 }),
     createdAt: fc.constant(Timestamp.now()),
     lastLogin: fc.constant(Timestamp.now()),
   });
